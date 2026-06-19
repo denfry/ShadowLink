@@ -92,7 +92,10 @@ the tray as root.
 
 - **License: GPL-3.0.** Embedding sing-box (GPL-3.0) in-process makes ShadowLink a
   derivative work; the project is GPL-3.0. Accepted (open tool among friends).
-- **Pinned stack:** sing-box `v1.13.13`, Go 1.24+, `fyne.io/systray v1.12.2`.
+- **Pinned stack:** sing-box `v1.13.7` (v1.13.8–v1.13.13 fail the embedded Windows
+  build — sing-box↔sing-tun `MyInterface` mismatch; corrected during Phase 0 from the
+  originally-verified v1.13.13), Go 1.24+, `fyne.io/systray v1.12.2`. Required build
+  tags: `with_utls with_gvisor with_clash_api` (REALITY needs `with_utls`).
 - **Server constraints are validated at import**, not assumed (Vision-over-TCP,
   matching REALITY `pbk`/`sid`, camouflage `sni`).
 

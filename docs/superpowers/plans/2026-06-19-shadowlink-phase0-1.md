@@ -6,14 +6,22 @@
 
 **Architecture:** One Go module, one privileged process (`cmd/shadowlink`). `internal/core` is the only package that imports sing-box; it renders a sing-box **JSON** config from a typed domain model and runs it via `box.New` with the mandatory DI context. `internal/manager` owns a connection state machine and drives reconnect/health. `internal/platform` enforces the fail-closed kill-switch via the OS firewall, independent of the core's lifecycle. Pure logic (parsing, config rendering, state machine, backoff, masking) is unit-tested with no privileges; the live tunnel is an integration/gate test against the real server.
 
-**Tech Stack:** Go 1.24+, `github.com/sagernet/sing-box v1.13.13` (package `box`, `option`, `include`), `github.com/sagernet/sing/common/json`, `github.com/spf13/cobra`, Windows `netsh advfirewall` (kill-switch MVP).
+**Tech Stack:** Go 1.24+, `github.com/sagernet/sing-box v1.13.7` (package `box`, `option`, `include`), `github.com/sagernet/sing/common/json`, `github.com/spf13/cobra`, Windows `netsh advfirewall` (kill-switch MVP).
+
+> **Build note (discovered during Phase 0 execution):** the core MUST be built with
+> tags **`with_utls with_gvisor with_clash_api`** (REALITY refuses to start without
+> `with_utls`). Pin **v1.13.7**, not v1.13.13: v1.13.8–v1.13.13 fail to compile in an
+> embedded Windows build (sing-box↔sing-tun `MyInterface` mismatch). `cache_file` has
+> no `store_selected` field in v1.13.7 — omit it. All `go build`/`go test` commands in
+> the tasks below must add `-tags "with_utls with_gvisor with_clash_api"`.
 
 ## Global Constraints
 
 These apply to **every** task; copied verbatim from ARCHITECTURE.md / the spec.
 
 - Go **1.24+** (sing-box 1.13.x requires it).
-- Pin `github.com/sagernet/sing-box` at **v1.13.13**.
+- Pin `github.com/sagernet/sing-box` at **v1.13.7** (v1.13.8+ break the embedded Windows build).
+- Build with tags **`with_utls with_gvisor with_clash_api`** everywhere (REALITY needs `with_utls`).
 - sing-box config is parsed with sing-box's **context-aware JSON** (`github.com/sagernet/sing/common/json`), **never** `encoding/json`, and **always** with a registry-populated context from `include.Context(ctx)` (since v1.11 `box.New` requires it).
 - VLESS outbound must use `flow` ∈ {`""`, `"xtls-rprx-vision"`} and `network: "tcp"`; Vision is valid only over bare TLS/REALITY (no ws/grpc transport).
 - REALITY fields are `tls.reality.public_key` / `tls.reality.short_id`; uTLS is `tls.utls.enabled`/`tls.utls.fingerprint` (default `chrome`; never `chrome_pq`).
@@ -611,7 +619,7 @@ func RenderConfig(p BuildParams) ([]byte, error) {
 			},
 		},
 		"experimental": map[string]any{
-			"cache_file": map[string]any{"enabled": true, "store_selected": true},
+			"cache_file": map[string]any{"enabled": true}, // note: no store_selected field in v1.13.7
 			"clash_api": map[string]any{
 				"external_controller": fmt.Sprintf("127.0.0.1:%d", set.ClashAPIPort),
 				"secret":              set.ClashAPISecret,
@@ -659,11 +667,12 @@ There is no unit test for the live box here (it needs privileges + a real server
 
 Run:
 ```bash
-go get github.com/sagernet/sing-box@v1.13.13
-go get github.com/sagernet/sing/common/json
+go get github.com/sagernet/sing-box@v1.13.7
 go get github.com/spf13/cobra@latest
+go mod tidy
 ```
-Expected: `go.mod`/`go.sum` updated; `sing-box` shows `v1.13.13`.
+Expected: `go.mod`/`go.sum` updated; `sing-box` shows `v1.13.7` (sing/common/json comes
+in transitively). Do NOT pin sing-tun manually — let sing-box pull its matched set.
 
 - [ ] **Step 2: Write the failing test** — `internal/core/core_test.go`
 
