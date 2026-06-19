@@ -1,0 +1,45 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+shadowlink
+shadowlink-tray
+
+# Test / coverage
+*.test
+*.out
+coverage.*
+
+# Go workspace / vendor
+/vendor/
+go.work
+go.work.sum
+
+# Embedded assets that are fetched, not committed
+/assets/wintun/*.dll
+/assets/rule-sets/*.srs
+
+# Local config & secrets (never commit real server configs / keys)
+*.local.json
+/configs/*.json
+!/configs/*.example.json
+secrets/
+*.subscription
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/logs/
+
+# Local Claude Code settings (hooks etc. are per-machine)
+.claude/settings.local.json
