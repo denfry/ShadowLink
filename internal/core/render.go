@@ -73,7 +73,7 @@ func RenderConfig(p BuildParams) ([]byte, error) {
 			},
 		},
 		"experimental": map[string]any{
-			"cache_file": map[string]any{"enabled": true, "store_selected": true},
+			"cache_file": map[string]any{"enabled": true},
 			"clash_api": map[string]any{
 				"external_controller": fmt.Sprintf("127.0.0.1:%d", set.ClashAPIPort),
 				"secret":              set.ClashAPISecret,

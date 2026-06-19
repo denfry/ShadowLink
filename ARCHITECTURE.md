@@ -66,7 +66,7 @@ in June 2026. See the spec's verification appendix for citations.
 | Concern | Choice | Why |
 |---|---|---|
 | Language | **Go 1.24+** | The core is Go; embedding in-process yields one static cross-platform binary. sing-box 1.13.x requires Go 1.24+. |
-| Proxy core | **sing-box `v1.13.13`**, embedded in-process via `github.com/sagernet/sing-box` (package `box`) | Designed as an embeddable library; natively covers TUN, DNS, routing/split-tunnel, multi-outbound selection — everything our feature set needs, in one config schema. Its VLESS+REALITY+Vision **client interoperates with the Xray-core server** (verified). |
+| Proxy core | **sing-box `v1.13.7`**, embedded in-process via `github.com/sagernet/sing-box` (package `box`) | Designed as an embeddable library; natively covers TUN, DNS, routing/split-tunnel, multi-outbound selection — everything our feature set needs, in one config schema. Its VLESS+REALITY+Vision **client interoperates with the Xray-core server** (verified). Pinned to v1.13.7 because v1.13.8–v1.13.13 fail to compile in an embedded Windows build (upstream sing-box↔sing-tun `MyInterface` API mismatch); v1.13.7 is the latest 1.13.x that builds. |
 | CLI framework | **spf13/cobra** | De-facto standard, subcommand ergonomics. |
 | System tray | **`fyne.io/systray` `v1.12.2`** | The actively-maintained fork of `getlantern/systray` (which is stale since 2023). DBus/StatusNotifierItem on Linux, no GTK/CGO build dependency. |
 | Config / state | JSON files in the per-user config dir | Simple, inspectable, no DB needed for a handful of servers. |
@@ -82,10 +82,18 @@ closed-source while embedding the core this way. (If a future requirement forced
 closed-source, the fallback is Approach C — core as a separate process — which we
 rejected for MVP; see the spec.)
 
+### Required build tags
+
+The core must be built with **`with_utls with_gvisor with_clash_api`**. These are
+not optional: without `with_utls` the core refuses to start because REALITY needs
+uTLS ("uTLS, which is required by reality is not included in this build");
+`with_gvisor` provides the TUN network stack; `with_clash_api` provides the runtime
+control surface (health probes, server switching). Encoded in the `Makefile` and CI.
+
 ### Pinned versions
 
-- `github.com/sagernet/sing-box` — `v1.13.13` (config schema: `.../option`,
-  registry bootstrap: `.../include`).
+- `github.com/sagernet/sing-box` — `v1.13.7` (config schema: `.../option`,
+  registry bootstrap: `.../include`). See the note above on why not v1.13.13.
 - JSON helpers: `github.com/sagernet/sing/common/json` (sing-box uses its own
   context-aware JSON, **not** `encoding/json`).
 - `fyne.io/systray` — `v1.12.2`.
@@ -421,5 +429,6 @@ TDD throughout (red→green→refactor). Layers:
    one.
 4. **Rule-set availability in RU** — mitigated by proxied download + bundled local
    `.srs` fallback.
-5. **sing-box API churn** — we pin `v1.13.13`; the embedding gate re-validates on
-   any bump (the v1.11 DI-context change is the kind of break to watch for).
+5. **sing-box API churn** — we pin `v1.13.7` (v1.13.8+ break the embedded Windows
+   build); the embedding gate re-validates on any bump (the v1.11 DI-context change
+   and the v1.13.8 `MyInterface` mismatch are the kinds of break to watch for).

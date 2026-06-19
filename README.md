@@ -52,10 +52,21 @@ systemd; macOS pkg + System Extension). Not available yet.
 
 Requirements: **Go 1.24+**, a C toolchain only where a platform needs it, and Git.
 
+Build tags are **required** (not optional): `with_utls` (REALITY needs uTLS, or the
+core refuses to start), `with_gvisor` (TUN network stack), `with_clash_api` (runtime
+control). The `Makefile` encodes them.
+
 ```sh
-git clone <repo-url> shadowlink && cd shadowlink
-go build ./cmd/shadowlink            # (Phase 0) the CLI + core host
+git clone https://github.com/denfry/ShadowLink shadowlink && cd shadowlink
+make build            # -> bin/shadowlink   (uses the required tags)
+# or directly:
+go build -tags "with_utls with_gvisor with_clash_api" -o bin/shadowlink ./cmd/shadowlink
+go test  -tags "with_utls with_gvisor with_clash_api" ./...
 ```
+
+> Pinned to **sing-box v1.13.7**: v1.13.8–v1.13.13 currently fail to compile in an
+> embedded Windows build (an upstream sing-box↔sing-tun API mismatch). v1.13.7 is the
+> latest 1.13.x that builds; revisit when upstream realigns.
 
 Platform build notes:
 
