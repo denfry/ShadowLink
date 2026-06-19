@@ -41,5 +41,9 @@ Thumbs.db
 *.log
 /logs/
 
+# sing-box runtime cache (cache_file)
+*.db
+cache.db
+
 # Local Claude Code settings (hooks etc. are per-machine)
 .claude/settings.local.json

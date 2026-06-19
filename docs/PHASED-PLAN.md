@@ -43,7 +43,12 @@ existing Xray+REALITY server) before building anything on top of it.
 - DNS forced through tunnel (DoH-over-proxy; `dns.final` never system).
 - **Kill-switch (Windows first)**: firewall fail-closed, independent of core
   lifecycle; `--fail-open` opt-out.
-- CLI: `connect`, `disconnect`, `status`, `import`, `logs`.
+- **Distinct TUN identity** (gate finding): set a non-default `interface_name`
+  (e.g. `shadowlink0`) and non-default subnet (e.g. `172.18.x`) in render.go so we
+  don't collide with other sing-box clients (Hiddify/Nekoray default to `tun0` /
+  `172.19.0.1`). Detect-and-warn if the address is already in use.
+- CLI: `connect`, `disconnect`, `status`, `import`, `logs`. `import` accepts a
+  subscription URL (gate showed real configs arrive only as sub links).
 
 **Acceptance:**
 - Unit tests: parser, domain→options translation, state machine (mock core),
@@ -114,3 +119,6 @@ and macOS System Extension).
   stated, never silent.
 - The compatibility gate (Phase 0) is the single most important checkpoint; we do
   not invest in Phases 1+ until it passes.
+  **Status: PASSED 2026-06-19** against the live server (sing-box v1.13.7, build
+  c7e7fcb) — IP changed, no DNS leak, clean disconnect. See `docs/GATE-PHASE0.md`.
+  Phase 1 is unblocked.

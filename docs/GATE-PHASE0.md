@@ -44,9 +44,16 @@ filtered network). Record the result at the bottom.
 
 ## Result
 
-- Date / OS / sing-box version:
-- Outcome (PASS/FAIL):
-- Notes (errors, fingerprint used, anything surprising):
+- Date / OS / sing-box version: 2026-06-19 / Windows 10 (amd64) / sing-box v1.13.7, build c7e7fcb
+- Outcome (PASS/FAIL): **PASS** — public IP changed to the server (178.236.246.69 / Oracle SNI camouflage), no DNS leak, clean disconnect.
+- Notes:
+  - Server delivered as a **subscription link** (`http://.../sub/<token>`), not a raw `vless://`. Body is base64 of newline-joined share URIs; decoded to a single VLESS+REALITY+Vision node (`flow=xtls-rprx-vision`, `sni=www.oracle.com`, `fp=chrome`). For the gate the link was extracted manually.
+  - First attempt failed with `set ipv4 address: The object already exists` because **Hiddify** (another sing-box client) was running and already held a `tun0` adapter on `172.19.0.1` (the sing-box default). Fully quitting Hiddify cleared it. wintun was present system-wide.
+
+### Carry-forward into Phase 1 (discovered at the gate)
+
+1. **Subscription import.** `connect` only accepts a single `vless://`. Real use only has a sub link → pull subscription fetch+decode (base64 → list of servers) forward into Phase 1.
+2. **Avoid the default-TUN collision.** render.go emits the sing-box default `172.19.0.1`, which clashes with Hiddify/Nekoray/etc. Give ShadowLink's TUN a distinct `interface_name` + non-default subnet (e.g. `172.18.x`) so it coexists.
 
 ## If FAIL
 
