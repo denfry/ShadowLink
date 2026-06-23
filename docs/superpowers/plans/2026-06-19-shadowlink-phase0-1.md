@@ -1799,8 +1799,10 @@ package core
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -1826,9 +1828,8 @@ func TestClashSwitchPutsName(t *testing.T) {
 	got := ""
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
-			buf := make([]byte, r.ContentLength)
-			r.Body.Read(buf)
-			got = string(buf)
+			b, _ := io.ReadAll(r.Body) // Read may short-fill a sized buffer; ReadAll is safe
+			got = string(b)
 			w.WriteHeader(http.StatusNoContent)
 		}
 	}))
@@ -1837,19 +1838,9 @@ func TestClashSwitchPutsName(t *testing.T) {
 	if err := c.Switch(context.Background(), "select", "us-1"); err != nil {
 		t.Fatalf("switch: %v", err)
 	}
-	if got == "" || !contains(got, "us-1") {
+	if !strings.Contains(got, "us-1") {
 		t.Fatalf("expected body to carry member name, got %q", got)
 	}
-}
-
-func contains(s, sub string) bool { return len(s) >= len(sub) && (s == sub || (len(s) > 0 && indexOf(s, sub) >= 0)) }
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }
 ```
 
