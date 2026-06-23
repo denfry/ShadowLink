@@ -31,12 +31,22 @@ func ParseSubscription(body []byte) ([]config.Server, error) {
 	return servers, nil
 }
 
+// decodeLenient returns the subscription as plain text, accepting a base64
+// layer only when the decoded bytes actually look like share URIs. The guard
+// matters because a plain-text body can coincidentally be valid base64; without
+// it, such input would be silently mis-decoded into garbage and report "no
+// servers". We require a "://" scheme separator in the decoded output before
+// trusting a base64 interpretation.
 func decodeLenient(s string) string {
-	if d, err := base64.StdEncoding.DecodeString(s); err == nil {
+	if d, err := base64.StdEncoding.DecodeString(s); err == nil && looksLikeURIs(d) {
 		return string(d)
 	}
-	if d, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+	if d, err := base64.RawURLEncoding.DecodeString(s); err == nil && looksLikeURIs(d) {
 		return string(d)
 	}
 	return s // assume already plain text
+}
+
+func looksLikeURIs(decoded []byte) bool {
+	return strings.Contains(string(decoded), "://")
 }

@@ -24,7 +24,9 @@ func TestImportRemoteURLSentinel(t *testing.T) {
 
 func TestImportFile(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "sub.txt")
-	os.WriteFile(p, []byte("vless://u@a.com:443?pbk=K#n\n"), 0o600)
+	if err := os.WriteFile(p, []byte("vless://u@a.com:443?pbk=K#n\n"), 0o600); err != nil {
+		t.Fatalf("setup write: %v", err)
+	}
 	servers, err := Import(p)
 	if err != nil || len(servers) != 1 {
 		t.Fatalf("file import: %v %+v", err, servers)
