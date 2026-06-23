@@ -8,6 +8,11 @@ import (
 )
 
 // Backoff computes exponential backoff with equal jitter, capped at Max.
+//
+// Staged for Phase 2: Phase 1 does health DETECTION + logging and relies on
+// sing-box's own outbound recovery after a blip. The client-driven reconnect /
+// failover loop that consumes this (driving the manager's Reconnecting state)
+// lands with multi-server switching in Phase 2.
 type Backoff struct {
 	Base      time.Duration
 	Max       time.Duration

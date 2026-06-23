@@ -8,6 +8,8 @@ const (
 	Disconnected  State = "disconnected"
 	Connecting    State = "connecting"
 	Connected     State = "connected"
+	// Reconnecting is reserved for the Phase 2 client-driven reconnect/failover
+	// loop (with Backoff). Phase 1 never enters it: recovery is sing-box-internal.
 	Reconnecting  State = "reconnecting"
 	Disconnecting State = "disconnecting"
 	Error         State = "error"

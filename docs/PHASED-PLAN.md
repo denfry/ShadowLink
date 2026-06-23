@@ -38,8 +38,11 @@ existing Xray+REALITY server) before building anything on top of it.
 - `internal/config` domain model + persistence (config dir per OS).
 - `internal/subscription` parsing of `vless://` and base64 subscriptions (lenient
   decode; constraint validation per ARCHITECTURE §4).
-- `internal/manager` state machine + auto-reconnect (backoff+jitter) + health-check
-  (`internal/health` via Clash API delay).
+- `internal/manager` state machine + health-check (`internal/health` via Clash API
+  delay) reporting degraded/recovered. Blip recovery in Phase 1 is sing-box's own
+  outbound reconnect; the `Backoff` primitive is built here but **client-driven
+  reconnect/failover (using it + the `Reconnecting` state) is deferred to Phase 2**,
+  where it pairs with multiple-server switching.
 - DNS forced through tunnel (DoH-over-proxy; `dns.final` never system).
 - **Kill-switch (Windows first)**: firewall fail-closed, independent of core
   lifecycle; `--fail-open` opt-out.
@@ -47,15 +50,20 @@ existing Xray+REALITY server) before building anything on top of it.
   (e.g. `shadowlink0`) and non-default subnet (e.g. `172.18.x`) in render.go so we
   don't collide with other sing-box clients (Hiddify/Nekoray default to `tun0` /
   `172.19.0.1`). Detect-and-warn if the address is already in use.
-- CLI: `connect`, `disconnect`, `status`, `import`, `logs`. `import` accepts a
-  subscription URL (gate showed real configs arrive only as sub links).
+- CLI: `connect`, `status`, `import`. (`disconnect` is the foreground Ctrl+C /
+  SIGTERM teardown until the Phase 3 daemon/IPC exists; a `logs` command likewise
+  waits for that daemon — there is nowhere to read logs from in a single
+  foreground process.) `import` accepts a `vless://` link, a file, or an inline
+  subscription body; a remote `http(s)://` sub URL is Phase 2.
 
 **Acceptance:**
 - Unit tests: parser, domain→options translation, state machine (mock core),
   backoff, secret masking — all green.
 - Kill the core process while connected → **no traffic leaks** (firewall holds);
   DNS-leak test passes; external IP is the server's.
-- Auto-reconnect recovers from a forced network blip without user action.
+- A forced network blip recovers without user action (sing-box's own outbound
+  reconnect); the health line reports degraded→recovered. (Client-driven
+  backoff-reconnect is Phase 2.)
 
 ---
 

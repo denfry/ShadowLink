@@ -41,7 +41,11 @@ func connectCmd() *cobra.Command {
 				set.KillSwitch = false
 				set.FailOpen = true
 			}
-			set.ClashAPISecret = randomSecret()
+			clashSecret, err := randomSecret()
+			if err != nil {
+				return err
+			}
+			set.ClashAPISecret = clashSecret
 
 			// Carry-forward (Task 1.0): warn if our TUN address is already taken
 			// (e.g. another sing-box client like Hiddify is up). Non-fatal — the
@@ -99,8 +103,10 @@ func pickServer(prof config.Profile, args []string) (config.Server, error) {
 	return prof.Servers[0], nil
 }
 
-func randomSecret() string {
+func randomSecret() (string, error) {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate clash api secret: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }

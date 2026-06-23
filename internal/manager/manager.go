@@ -29,7 +29,6 @@ type Manager struct {
 	mu    sync.Mutex
 	state State
 	tun   Tunnel
-	set   config.Settings
 }
 
 // New builds a Manager from its dependencies.
@@ -55,7 +54,6 @@ func (m *Manager) Connect(srv config.Server, set config.Settings) error {
 		return fmt.Errorf("cannot connect from state %s", m.state)
 	}
 	m.setState(Connecting)
-	m.set = set
 
 	useKS := set.KillSwitch && !set.FailOpen
 	if useKS {
