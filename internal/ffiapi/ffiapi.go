@@ -33,7 +33,7 @@ type API struct {
 	render     func(core.BuildParams) ([]byte, error)
 	newTunnel  func([]byte) (manager.Tunnel, error)
 	newKS      func() platform.KillSwitch
-	newProber  func(port int, secret string) Prober
+	newProber  func(port int, sec string) Prober
 	load       func() (config.Profile, error)
 	save       func(config.Profile) error
 	importFn   func(string) ([]config.Server, error)
