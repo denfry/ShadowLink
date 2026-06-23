@@ -60,7 +60,7 @@ func (a *API) Select(tag string) string {
 			if err := a.save(prof); err != nil {
 				return errJSON(err, false)
 			}
-			return okJSON(nil)
+			return okJSON(map[string]any{"selected": tag})
 		}
 	}
 	return errJSON(fmt.Errorf("no server with tag %q", tag), false)

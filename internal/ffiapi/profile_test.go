@@ -43,3 +43,26 @@ func TestSelectUnknownErrors(t *testing.T) {
 		t.Fatal("selecting an unknown tag should fail")
 	}
 }
+
+func TestSelectReturnsSelected(t *testing.T) {
+	a, _ := newTestAPI()
+	_ = a.Import("vless://whatever")
+	m := decode(t, a.Select("n1"))
+	if m["ok"] != true || m["selected"] != "n1" {
+		t.Fatalf("select should confirm the selected tag, got %v", m)
+	}
+}
+
+func TestListServersEmptyProfile(t *testing.T) {
+	a, _ := newTestAPI() // fresh, no servers imported
+	m := decode(t, a.ListServers())
+	if m["ok"] != true {
+		t.Fatalf("empty list should still be ok, got %v", m)
+	}
+	if m["selected"] != "" {
+		t.Fatalf("empty profile should have no selection, got %v", m["selected"])
+	}
+	if servers, _ := m["servers"].([]any); len(servers) != 0 {
+		t.Fatalf("empty profile should list zero servers, got %v", m["servers"])
+	}
+}
