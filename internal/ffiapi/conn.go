@@ -117,8 +117,11 @@ func pickServer(prof config.Profile, tag string) (config.Server, error) {
 				return s, nil
 			}
 		}
+		// A named/selected tag that no longer exists must NOT silently route
+		// traffic through some other server — fail so the UI can re-select.
+		return config.Server{}, fmt.Errorf("selected server %q no longer exists; pick another", want)
 	}
-	return prof.Servers[0], nil
+	return prof.Servers[0], nil // no selection yet: default to the first
 }
 
 func isAccessDenied(err error) bool {

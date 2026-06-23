@@ -12,7 +12,7 @@ class ConnStatus {
   factory ConnStatus.fromJson(Map<String, dynamic> m) => ConnStatus(
         state: (m['state'] ?? 'disconnected') as String,
         server: (m['server'] ?? '') as String,
-        delayMs: (m['delayMs'] ?? 0) as int,
+        delayMs: ((m['delayMs'] ?? 0) as num).toInt(),
         error: (m['error'] ?? '') as String,
       );
 

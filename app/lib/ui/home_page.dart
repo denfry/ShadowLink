@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../state/connection_controller.dart';
 import 'servers_page.dart';
@@ -17,6 +18,19 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     widget.controller.refresh();
+  }
+
+  /// Relaunch this executable elevated (UAC) via PowerShell, then exit so only
+  /// the elevated instance remains. Only reachable when launched non-elevated
+  /// (the packaged app's manifest already requests requireAdministrator).
+  Future<void> _relaunchElevated() async {
+    final exe = Platform.resolvedExecutable;
+    await Process.start('powershell', [
+      '-NoProfile',
+      '-Command',
+      "Start-Process -FilePath '$exe' -Verb RunAs",
+    ]);
+    exit(0);
   }
 
   @override
@@ -56,12 +70,18 @@ class _HomePageState extends State<HomePage> {
               if (c.lastError != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(
-                    c.needsAdmin
-                        ? 'Run as administrator to bring up the tunnel.'
-                        : 'Error: ${c.lastError}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  child: c.needsAdmin
+                      ? Column(children: [
+                          const Text('Run as administrator to bring up the tunnel.',
+                              style: TextStyle(color: Colors.red)),
+                          const SizedBox(height: 8),
+                          FilledButton(
+                            onPressed: _relaunchElevated,
+                            child: const Text('Relaunch as administrator'),
+                          ),
+                        ])
+                      : Text('Error: ${c.lastError}',
+                          style: const TextStyle(color: Colors.red)),
                 ),
             ]),
           );

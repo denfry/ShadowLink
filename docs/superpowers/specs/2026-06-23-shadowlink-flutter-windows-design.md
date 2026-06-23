@@ -94,13 +94,13 @@ app/
 
 **First-slice UI:** Home — connection status pill (Disconnected/Connecting/Connected/Error), a large Connect/Disconnect toggle, the selected server (masked) + live delay, a kill-switch checkbox (drives `failOpen`), and a "needs administrator" banner with a relaunch button. Servers — list of imported servers (masked, selected marked), an import text field (`vless://` / sub body / file path) + Import button, tap-to-select.
 
-**State & threading:** no external state package — `ChangeNotifier` + `ListenableBuilder`. Blocking calls (`Start`/`Stop`/`Import`) run on `Isolate.run` so the UI never freezes; `Status` is a fast localhost delay probe polled by a ~2s timer. `ShadowlinkCore` sits behind the `CoreApi` interface so the controller and widgets are tested with a fake.
+**State & threading:** no external state package — `ChangeNotifier` + `ListenableBuilder`. `Status` is a fast localhost delay probe polled by a ~2s timer. `ShadowlinkCore` sits behind the `CoreApi` interface so the controller and widgets are tested with a fake. **v1 runs the blocking FFI calls (`Start`/`Stop`/`Import`) on the main isolate** — a brief UI freeze during tunnel bring-up is acceptable for the first slice. Moving them to a background isolate is a deliberate follow-up (the isolate needs its own `DynamicLibrary` handle but still shares the one process-global Go singleton).
 
 **Continuity:** the Go core reads/writes the same `profile.json` (`os.UserConfigDir()/shadowlink`) as the CLI — a server imported via either front-end is visible in the other.
 
 ## 5. Data Flow
 
-- **Connect:** user taps toggle → controller calls `ShadowlinkCore.start({failOpen})` on an isolate → `SL_Start` → `ffiapi.Start` parses opts, loads the selected server from profile, `manager.Connect` (kill-switch enabled before tunnel, then `core.New`+`Start`) → JSON `{ok}` back → controller flips to Connecting/Connected; the 2s poller calls `SL_Status` for state + delay.
+- **Connect:** user taps toggle → controller calls `ShadowlinkCore.start({failOpen})` (main isolate in v1) → `SL_Start` → `ffiapi.Start` parses opts, loads the selected server from profile, `manager.Connect` (kill-switch enabled before tunnel, then `core.New`+`Start`) → JSON `{ok}` back → controller flips to Connecting/Connected; the 2s poller calls `SL_Status` for state + delay.
 - **Status:** timer → `SL_Status` → `ffiapi.Status` returns `manager.State()` + a `ClashClient.Delay("proxy", …)` probe → UI updates.
 - **Import/Select:** Servers page → `SL_Import`/`SL_Select` → persists profile → `SL_ListServers` refresh.
 - **Disconnect:** toggle → `SL_Stop` → `manager.Disconnect` (tunnel Close + kill-switch Disable) → state Disconnected.

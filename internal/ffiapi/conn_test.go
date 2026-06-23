@@ -71,6 +71,22 @@ func TestStartNoServersErrors(t *testing.T) {
 	}
 }
 
+func TestStartStaleSelectionErrors(t *testing.T) {
+	a, prof := newTestAPI()
+	*prof = config.Profile{
+		Servers:  []config.Server{{Tag: "n1", UUID: "u", Host: "1.2.3.4", Port: 443, Flow: "xtls-rprx-vision", Network: "tcp", PublicKey: "K"}},
+		Selected: "gone", // points at a server that isn't in the list
+		Settings: config.DefaultSettings(),
+	}
+	a.render = func(core.BuildParams) ([]byte, error) { return []byte("{}"), nil }
+	a.newTunnel = func([]byte) (manager.Tunnel, error) { return &fakeTunnel{}, nil }
+	a.newKS = func() platform.KillSwitch { return &fakeKS{} }
+	// Must NOT silently connect to n1; a stale selection is an error.
+	if decode(t, a.Start(`{}`))["ok"] != false {
+		t.Fatal("start with a stale selected tag must fail, not fall back to another server")
+	}
+}
+
 func TestStartRejectsDoubleStart(t *testing.T) {
 	a := apiWithFakeEngine()
 	if decode(t, a.Start(`{}`))["ok"] != true {

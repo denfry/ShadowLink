@@ -17,6 +17,11 @@ class ConnectionController extends ChangeNotifier {
     lastError = null;
     needsAdmin = false;
     try {
+      // v1 runs the FFI call on the main isolate (a brief UI freeze during
+      // tunnel bring-up is acceptable for the Windows slice). Moving it to a
+      // background isolate is a deliberate follow-up — the isolate would need
+      // its own DynamicLibrary handle, though it still shares the one Go
+      // singleton because the DLL image is process-global on Windows.
       await Future(() => core.start(failOpen: failOpen));
       _startPolling();
     } on CoreException catch (e) {

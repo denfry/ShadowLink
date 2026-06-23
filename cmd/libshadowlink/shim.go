@@ -17,6 +17,10 @@ import (
 
 var api = ffiapi.Default()
 
+// String args (SL_Import/SL_Select/SL_Start) are assumed non-null — the Dart
+// binding always passes a real `toNativeUtf8()` pointer. (C.GoString(nil) also
+// returns "" in modern cgo, so a stray null degrades to an empty input.)
+
 //export SL_Version
 func SL_Version() *C.char { return C.CString(api.Version()) }
 
