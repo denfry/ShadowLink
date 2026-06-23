@@ -2562,6 +2562,13 @@ func connectCmd() *cobra.Command {
 			}
 			set.ClashAPISecret = randomSecret()
 
+			// Carry-forward (Task 1.0): warn if our TUN address is already taken
+			// (e.g. another sing-box client like Hiddify is up). Non-fatal — the
+			// bring-up below would otherwise fail with "address already exists".
+			if inUse, _ := core.LocalTUNAddrInUse(); inUse {
+				fmt.Fprintf(os.Stderr, "warning: %s is already assigned to a local interface (another VPN client running?); exit it first if connect fails.\n", core.TUNAddress4CIDR)
+			}
+
 			m := manager.New(manager.Deps{
 				Render:    core.RenderConfig,
 				NewTunnel: func(b []byte) (manager.Tunnel, error) { return core.New(b) },
@@ -2736,15 +2743,15 @@ func main() {
 }
 ```
 
-- [ ] **Step 4: Build + vet**
+- [ ] **Step 4: Build + vet (WITH TAGS)**
 
-Run: `go build ./... && go vet ./...`
-Expected: clean.
+Run: `go build -tags "with_utls with_gvisor with_clash_api" ./... && go vet -tags "with_utls with_gvisor with_clash_api" ./...`
+Expected: clean. (The binary MUST be built with these tags or REALITY won't start at runtime.)
 
-- [ ] **Step 5: Run the full unit suite**
+- [ ] **Step 5: Run the full unit suite (WITH TAGS)**
 
-Run: `go test ./...`
-Expected: all packages PASS.
+Run: `go test -tags "with_utls with_gvisor with_clash_api" ./...`
+Expected: all packages PASS. (Without the tags, `internal/core` fails at runtime — that is the expected pre-existing condition, not a regression.)
 
 - [ ] **Step 6: Commit**
 
