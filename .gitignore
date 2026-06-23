@@ -47,3 +47,10 @@ cache.db
 
 # Local Claude Code settings (hooks etc. are per-machine)
 .claude/settings.local.json
+
+# Flutter app build artifacts + staged native libs
+/app/build/
+/app/.dart_tool/
+/app/windows/native/
+/app/.flutter-plugins
+/app/.flutter-plugins-dependencies
