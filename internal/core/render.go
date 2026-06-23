@@ -51,13 +51,14 @@ func RenderConfig(p BuildParams) ([]byte, error) {
 		},
 		"inbounds": []any{
 			map[string]any{
-				"type":         "tun",
-				"tag":          "tun-in",
-				"address":      []any{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
-				"mtu":          1420,
-				"auto_route":   true,
-				"strict_route": true,
-				"stack":        "mixed",
+				"type":           "tun",
+				"tag":            "tun-in",
+				"interface_name": TUNInterfaceName,
+				"address":        []any{TUNAddress4CIDR, TUNAddress6CIDR},
+				"mtu":            1420,
+				"auto_route":     true,
+				"strict_route":   true,
+				"stack":          "mixed",
 			},
 		},
 		"outbounds": []any{

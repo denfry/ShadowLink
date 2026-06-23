@@ -69,6 +69,24 @@ func TestRenderHasTunInboundUnifiedAddress(t *testing.T) {
 	}
 }
 
+func TestRenderTunHasDistinctIdentity(t *testing.T) {
+	m := render(t)
+	ins := m["inbounds"].([]any)
+	tun := ins[0].(map[string]any)
+	if tun["interface_name"] != "shadowlink0" {
+		t.Fatalf("want distinct interface_name shadowlink0, got %v", tun["interface_name"])
+	}
+	addrs := tun["address"].([]any)
+	if addrs[0] != "172.18.0.1/30" {
+		t.Fatalf("want non-default 172.18.0.1/30, got %v", addrs[0])
+	}
+	for _, a := range addrs {
+		if a == "172.19.0.1/30" {
+			t.Fatal("must not use sing-box default 172.19.0.1 (Hiddify collision)")
+		}
+	}
+}
+
 func TestRenderDNSIsProxiedDoHNoSystemFallback(t *testing.T) {
 	m := render(t)
 	dns := m["dns"].(map[string]any)
