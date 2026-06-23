@@ -87,6 +87,15 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# Bundle the ShadowLink Go core + wintun beside the executable so dart:ffi can
+# load them at runtime. They are built by build/build_windows.ps1 into
+# windows/native/ — run that BEFORE `flutter build windows`.
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/shadowlink_core.dll"
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/wintun.dll"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

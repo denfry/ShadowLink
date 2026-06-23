@@ -32,11 +32,10 @@ real server) is left for you:
    — install mingw-w64 (e.g. `choco install mingw`).
 2. **App deps:** in `app/`, `flutter pub get`. (The `windows/` runner is already
    committed, so `flutter create` is not needed again.)
-3. **Stage the native DLLs beside the runner exe.** Copy `shadowlink_core.dll` and
-   `wintun.dll` from `app/windows/native/` into the runner output dir next to the
-   built `.exe` — `app/build/windows/x64/runner/Release/` (or `…/Debug/` for
-   `flutter run`). `dart:ffi` resolves `shadowlink_core.dll` there and sing-box
-   loads `wintun.dll`.
+3. **Native DLLs are bundled automatically.** `app/windows/CMakeLists.txt` installs
+   `shadowlink_core.dll` + `wintun.dll` (from `app/windows/native/`) next to the
+   built `.exe` on every `flutter build`/`flutter run` — no manual copy. (So run
+   step 1 BEFORE the Flutter build; if `native/` is empty the build errors clearly.)
 4. **Build + run ELEVATED:** `flutter build windows --release`, then run
    `app/build/windows/x64/runner/Release/shadowlink.exe` **as administrator**
    (right-click → Run as administrator), OR launch normally and use the
