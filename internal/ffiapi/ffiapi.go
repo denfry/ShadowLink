@@ -75,7 +75,7 @@ func okJSON(extra map[string]any) string {
 
 // errJSON renders a failure, masking any secret-looking content in the message.
 func errJSON(err error, needsAdmin bool) string {
-	m := map[string]any{"ok": false, "error": secret.Mask(err.Error())}
+	m := map[string]any{"ok": false, "error": secret.Scrub(err.Error())}
 	if needsAdmin {
 		m["needsAdmin"] = true
 	}
