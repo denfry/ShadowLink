@@ -30,8 +30,10 @@ func TestClashDelayParsesJSON(t *testing.T) {
 
 func TestClashSwitchPutsName(t *testing.T) {
 	got := ""
+	authSeen := "unset"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
+			authSeen = r.Header.Get("Authorization")
 			b, _ := io.ReadAll(r.Body) // Read may short-fill a sized buffer; ReadAll is safe
 			got = string(b)
 			w.WriteHeader(http.StatusNoContent)
@@ -44,5 +46,9 @@ func TestClashSwitchPutsName(t *testing.T) {
 	}
 	if !strings.Contains(got, "us-1") {
 		t.Fatalf("expected body to carry member name, got %q", got)
+	}
+	// With an empty Secret, no Authorization header must be sent.
+	if authSeen != "" {
+		t.Fatalf("expected no Authorization header when Secret is empty, got %q", authSeen)
 	}
 }

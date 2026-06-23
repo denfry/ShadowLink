@@ -2,12 +2,12 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
@@ -36,7 +36,10 @@ func (c *ClashClient) auth(r *http.Request) {
 // Delay measures latency (ms) for an outbound via GET /proxies/{tag}/delay.
 func (c *ClashClient) Delay(ctx context.Context, tag, testURL string, timeoutMS int) (int, error) {
 	u := fmt.Sprintf("%s/proxies/%s/delay?timeout=%d&url=%s", c.BaseURL, url.PathEscape(tag), timeoutMS, url.QueryEscape(testURL))
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return 0, fmt.Errorf("delay: build request: %w", err)
+	}
 	c.auth(req)
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
@@ -58,8 +61,14 @@ func (c *ClashClient) Delay(ctx context.Context, tag, testURL string, timeoutMS 
 // Switch sets the active member of a selector via PUT /proxies/{selector}.
 func (c *ClashClient) Switch(ctx context.Context, selector, member string) error {
 	u := fmt.Sprintf("%s/proxies/%s", c.BaseURL, url.PathEscape(selector))
-	body := strings.NewReader(fmt.Sprintf(`{"name":%q}`, member))
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPut, u, body)
+	payload, err := json.Marshal(map[string]string{"name": member})
+	if err != nil {
+		return fmt.Errorf("switch: marshal body: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("switch: build request: %w", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	c.auth(req)
 	resp, err := c.HTTP.Do(req)
