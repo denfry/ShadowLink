@@ -3,6 +3,7 @@ package ffiapi
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/shadowlink/shadowlink/internal/config"
@@ -11,9 +12,12 @@ import (
 	"github.com/shadowlink/shadowlink/internal/platform"
 )
 
-type fakeTunnel struct{ started, closed bool }
+type fakeTunnel struct {
+	started, closed bool
+	startErr        error
+}
 
-func (f *fakeTunnel) Start() error { f.started = true; return nil }
+func (f *fakeTunnel) Start() error { f.started = true; return f.startErr }
 func (f *fakeTunnel) Close() error { f.closed = true; return nil }
 
 type fakeKS struct{ enabled bool }
@@ -64,5 +68,41 @@ func TestStartNoServersErrors(t *testing.T) {
 	a, _ := newTestAPI() // empty profile
 	if decode(t, a.Start(`{}`))["ok"] != false {
 		t.Fatal("start with no servers must fail")
+	}
+}
+
+func TestStartRejectsDoubleStart(t *testing.T) {
+	a := apiWithFakeEngine()
+	if decode(t, a.Start(`{}`))["ok"] != true {
+		t.Fatal("first start should succeed")
+	}
+	if decode(t, a.Start(`{}`))["ok"] != false {
+		t.Fatal("second start while connected must be rejected (would orphan the tunnel)")
+	}
+}
+
+func TestFailOpenKeepsKillSwitchOff(t *testing.T) {
+	a := apiWithFakeEngine()
+	ks := &fakeKS{}
+	a.newKS = func() platform.KillSwitch { return ks }
+	if decode(t, a.Start(`{"failOpen":true}`))["ok"] != true {
+		t.Fatal("failOpen start should succeed")
+	}
+	if ks.enabled {
+		t.Fatal("kill-switch must stay off when failOpen is set")
+	}
+}
+
+func TestStartAccessDeniedSetsNeedsAdmin(t *testing.T) {
+	a := apiWithFakeEngine()
+	a.newTunnel = func([]byte) (manager.Tunnel, error) {
+		return &fakeTunnel{startErr: errors.New("Access is denied.")}, nil
+	}
+	m := decode(t, a.Start(`{}`))
+	if m["ok"] != false {
+		t.Fatal("start should fail when the tunnel can't come up")
+	}
+	if m["needsAdmin"] != true {
+		t.Fatalf("an access-denied failure should set needsAdmin, got %v", m)
 	}
 }

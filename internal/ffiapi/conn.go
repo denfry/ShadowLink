@@ -43,6 +43,11 @@ func (a *API) Start(optsJSON string) string {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.mgr != nil {
+		// Already connected: refuse rather than overwrite the singleton, which
+		// would orphan the running tunnel + its kill-switch rule. Stop first.
+		return errJSON(fmt.Errorf("already connected; stop first"), false)
+	}
 	mgr := manager.New(manager.Deps{Render: a.render, NewTunnel: a.newTunnel, KillSwitch: a.newKS()})
 	if err := mgr.Connect(srv, set); err != nil {
 		return errJSON(err, isAccessDenied(err))
@@ -61,6 +66,8 @@ func (a *API) Stop() string {
 		return okJSON(nil)
 	}
 	err := a.mgr.Disconnect()
+	// Always clear the singleton, even if Disconnect erred, so a failed teardown
+	// can't wedge the API in a permanently "connected" state.
 	a.mgr = nil
 	a.prober = nil
 	a.active = config.Server{}
@@ -120,5 +127,5 @@ func isAccessDenied(err error) bool {
 		strings.Contains(e, "permission denied") ||
 		strings.Contains(e, "operation not permitted") ||
 		strings.Contains(e, "requires elevation") ||
-		strings.Contains(e, "admin")
+		strings.Contains(e, "requires administrator")
 }
