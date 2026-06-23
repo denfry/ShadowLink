@@ -77,5 +77,12 @@ func SaveTo(path string, p Profile) error {
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return fmt.Errorf("write profile: %w", err)
 	}
-	return os.Rename(tmp, path)
+	// Same-directory rename: atomic on POSIX, and replace-existing on modern
+	// Windows (Go uses MOVEFILE_REPLACE_EXISTING). On failure, don't leave the
+	// half-written temp behind.
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("commit profile: %w", err)
+	}
+	return nil
 }

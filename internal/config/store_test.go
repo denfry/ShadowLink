@@ -24,6 +24,12 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if len(out.Servers) != 1 || out.Servers[0].Tag != "n1" || out.Selected != "n1" {
 		t.Fatalf("round trip mismatch: %+v", out)
 	}
+	// Settings are the primary user-facing state; assert the whole block
+	// survived the round trip (guards against a partial serialize or the
+	// default-fallback in LoadFrom silently overwriting saved values).
+	if out.Settings != in.Settings {
+		t.Fatalf("settings not preserved: got %+v want %+v", out.Settings, in.Settings)
+	}
 }
 
 func TestLoadFromMissingReturnsDefault(t *testing.T) {
