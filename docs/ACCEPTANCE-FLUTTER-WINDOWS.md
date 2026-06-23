@@ -9,32 +9,49 @@ Record the result at the bottom.
 Visual Studio with the "Desktop development with C++" workload, **mingw-w64
 (x86_64)** on PATH (`CC=x86_64-w64-mingw32-gcc`), Go 1.24+, and `bin/wintun.dll`.
 
+## Build status — validated 2026-06-23 (on the author's Windows machine)
+
+These steps were RUN and confirmed; only the **live tunnel** (needs admin + your
+real server) is left for you:
+- `build/build_windows.ps1` builds `app/windows/native/shadowlink_core.dll`
+  (46 MB, sing-box + cgo shim) — validates that sing-box compiles as a c-shared
+  DLL with mingw-w64 16.1.0, and that the cgo shim is correct. The `.h` exports
+  all 8 `SL_*` functions.
+- `app/` Flutter: `flutter pub get` ok, `flutter analyze` = **No issues found**,
+  `flutter test` = **2/2 passed** (controller on `FakeCore`).
+- The Windows runner is scaffolded (committed under `app/windows/`).
+- `flutter build windows --release` → `shadowlink.exe` builds, and **launching it
+  starts cleanly and stays running** — i.e. `ShadowlinkCore.open()` loads the DLL
+  via `dart:ffi`, the `SL_Status` round-trip works, and the UI renders
+  DISCONNECTED. The whole `Go ffiapi → cgo shim → DLL → dart:ffi → UI` chain works.
+
 ## Build & run
 
-1. **Build the Go core DLL:** from the repo root, `pwsh build/build_windows.ps1`
-   → produces `app/windows/native/shadowlink_core.dll` + `shadowlink_core.h`,
-   and stages `wintun.dll` beside it. If you see
-   `cc1.exe: 64-bit mode not compiled in`, your `gcc` is 32-bit — install
-   mingw-w64 (x86_64) and set `CC`.
-2. **Scaffold the Flutter Windows runner** (first time only), in `app/`:
-   `flutter create --platforms=windows --org com.shadowlink .`
-   This generates `windows/`. Then **edit `app/windows/runner/runner.exe.manifest`**:
-   inside the `<trustInfo>` → `<security>` → `<requestedPrivileges>` block, set
-   ```xml
-   <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
-   ```
-   (so the app launches elevated — the TUN + firewall need it). Then `flutter pub get`.
-3. **Stage the native DLLs beside the runner exe.** The build script writes them
-   to `app/windows/native/`; for `flutter run` copy `shadowlink_core.dll` and
-   `wintun.dll` into `app/build/windows/x64/runner/Debug/` (next to the built
-   `.exe`, where `dart:ffi` resolves the DLL and sing-box loads wintun). For a
-   release build, have `windows/runner` CMake bundle them into the output.
-4. **Run elevated:** from an **Administrator** terminal, in `app/`: `flutter run -d windows`.
+1. **Build the Go core DLL:** `pwsh build/build_windows.ps1` (mingw-w64 x86_64 on
+   PATH). If you see `cc1.exe: 64-bit mode not compiled in`, your `gcc` is 32-bit
+   — install mingw-w64 (e.g. `choco install mingw`).
+2. **App deps:** in `app/`, `flutter pub get`. (The `windows/` runner is already
+   committed, so `flutter create` is not needed again.)
+3. **Stage the native DLLs beside the runner exe.** Copy `shadowlink_core.dll` and
+   `wintun.dll` from `app/windows/native/` into the runner output dir next to the
+   built `.exe` — `app/build/windows/x64/runner/Release/` (or `…/Debug/` for
+   `flutter run`). `dart:ffi` resolves `shadowlink_core.dll` there and sing-box
+   loads `wintun.dll`.
+4. **Build + run ELEVATED:** `flutter build windows --release`, then run
+   `app/build/windows/x64/runner/Release/shadowlink.exe` **as administrator**
+   (right-click → Run as administrator), OR launch normally and use the
+   **"Relaunch as administrator"** button that appears on the needsAdmin banner.
+
+> **Auto-UAC note:** the natural `requireAdministrator` manifest is left
+> **commented out** in `app/windows/runner/runner.exe.manifest` because embedding
+> an elevation manifest trips `mt.exe` (`LINK : fatal error LNK1327`) when Defender
+> locks the binary during the manifest merge. So the build ships without auto-UAC;
+> elevate at runtime (above). To re-enable auto-UAC, add a Defender exclusion for
+> the build dir and uncomment the block.
 
 > UI preview without the DLL: temporarily swap `ShadowlinkCore.open()` for
 > `FakeCore()` in `app/lib/main.dart` to click through the screens without a
-> built core (useful for layout work). `flutter test` already runs against
-> `FakeCore` and needs no DLL.
+> built core. `flutter test` already runs against `FakeCore` and needs no DLL.
 
 ## Verify
 
