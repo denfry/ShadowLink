@@ -951,6 +951,178 @@ Outcome: dependable single-server CLI VPN with persistence, auto-reconnect, heal
 
 ---
 
+### Task 1.0: Distinct TUN identity + collision detection (Phase 0 gate carry-forward)
+
+**Why:** the Phase 0 gate failed its first attempt with `set ipv4 address: The
+object already exists` because render.go emits the sing-box **default**
+`172.19.0.1` on interface `tun0`, which **Hiddify** (another embedded-sing-box
+client the user runs) already held. Give ShadowLink's TUN a distinct
+`interface_name` + non-default subnet so it coexists, and add a pure helper that
+warns *before* bring-up if the address is already taken. (`PHASED-PLAN.md` Phase 1;
+`docs/GATE-PHASE0.md` carry-forward #2.)
+
+**Files:**
+- Create: `internal/core/tun.go`, `internal/core/tun_test.go`
+- Modify: `internal/core/render.go` (use the TUN constants; add `interface_name`)
+- Modify: `internal/core/render_test.go` (assert the distinct identity)
+
+**Interfaces:**
+- Produces:
+  - `core.TUNInterfaceName = "shadowlink0"`, `core.TUNAddress4CIDR = "172.18.0.1/30"`, `core.TUNAddress6CIDR = "fdfe:dcba:9876::1/126"`.
+  - `core.IPv4Assigned(ip string, addrs []net.Addr) bool` — pure; reports whether `ip` is present among interface addrs.
+  - `core.LocalTUNAddrInUse() (bool, error)` — checks the host's live interfaces for ShadowLink's TUN IPv4 (used by the CLI in Task 1.10 to warn).
+
+- [ ] **Step 1: Write the failing test** — `internal/core/tun_test.go`
+
+```go
+// SPDX-License-Identifier: GPL-3.0-only
+package core
+
+import (
+	"net"
+	"testing"
+)
+
+func TestIPv4AssignedMatches(t *testing.T) {
+	_, n, _ := net.ParseCIDR("172.18.0.1/30")
+	addrs := []net.Addr{
+		&net.IPNet{IP: net.ParseIP("192.168.1.5"), Mask: n.Mask},
+		&net.IPNet{IP: net.ParseIP("172.18.0.1"), Mask: n.Mask},
+	}
+	if !IPv4Assigned("172.18.0.1", addrs) {
+		t.Fatal("expected 172.18.0.1 to be detected as assigned")
+	}
+	if IPv4Assigned("10.0.0.1", addrs) {
+		t.Fatal("did not expect 10.0.0.1 to be assigned")
+	}
+}
+
+func TestTUNConstantsAreNonDefault(t *testing.T) {
+	if TUNAddress4CIDR == "172.19.0.1/30" {
+		t.Fatal("TUN must NOT use the sing-box default 172.19.0.1 (collides with Hiddify/Nekoray)")
+	}
+	if TUNInterfaceName == "" || TUNInterfaceName == "tun0" {
+		t.Fatalf("TUN interface name must be distinct, got %q", TUNInterfaceName)
+	}
+}
+```
+
+- [ ] **Step 2: Run it, verify it fails**
+
+Run: `go test -tags "with_utls with_gvisor with_clash_api" ./internal/core/ -run "IPv4Assigned|TUNConstants"`
+Expected: FAIL — undefined `IPv4Assigned`/`TUNAddress4CIDR`.
+
+- [ ] **Step 3: Implement** — `internal/core/tun.go`
+
+```go
+// SPDX-License-Identifier: GPL-3.0-only
+package core
+
+import "net"
+
+// ShadowLink uses a DISTINCT TUN identity so it never collides with other
+// embedded-sing-box clients (Hiddify/Nekoray default to interface "tun0" on
+// 172.19.0.1). The Phase 0 gate hit "set ipv4 address: The object already
+// exists" because of exactly that clash.
+const (
+	TUNInterfaceName = "shadowlink0"
+	TUNAddress4CIDR  = "172.18.0.1/30"
+	TUNAddress6CIDR  = "fdfe:dcba:9876::1/126"
+	tunAddress4IP    = "172.18.0.1"
+)
+
+// IPv4Assigned reports whether ip is present among addrs (the concrete types
+// net.InterfaceAddrs returns: *net.IPNet / *net.IPAddr). Pure -> unit-testable
+// without touching the host's interfaces.
+func IPv4Assigned(ip string, addrs []net.Addr) bool {
+	target := net.ParseIP(ip)
+	if target == nil {
+		return false
+	}
+	for _, a := range addrs {
+		var got net.IP
+		switch v := a.(type) {
+		case *net.IPNet:
+			got = v.IP
+		case *net.IPAddr:
+			got = v.IP
+		}
+		if got != nil && got.Equal(target) {
+			return true
+		}
+	}
+	return false
+}
+
+// LocalTUNAddrInUse reports whether ShadowLink's TUN IPv4 is already assigned to
+// a local interface (e.g. another VPN client is up). The CLI warns on true
+// before bring-up, which would otherwise fail with "address already exists".
+func LocalTUNAddrInUse() (bool, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false, err
+	}
+	return IPv4Assigned(tunAddress4IP, addrs), nil
+}
+```
+
+- [ ] **Step 4: Modify** — `internal/core/render.go` TUN inbound to use the constants and set a distinct `interface_name`:
+
+```go
+		"inbounds": []any{
+			map[string]any{
+				"type":           "tun",
+				"tag":            "tun-in",
+				"interface_name": TUNInterfaceName,
+				"address":        []any{TUNAddress4CIDR, TUNAddress6CIDR},
+				"mtu":            1420,
+				"auto_route":     true,
+				"strict_route":   true,
+				"stack":          "mixed",
+			},
+		},
+```
+
+- [ ] **Step 5: Add the render assertion** — append to `internal/core/render_test.go`
+
+```go
+func TestRenderTunHasDistinctIdentity(t *testing.T) {
+	m := render(t)
+	ins := m["inbounds"].([]any)
+	tun := ins[0].(map[string]any)
+	if tun["interface_name"] != "shadowlink0" {
+		t.Fatalf("want distinct interface_name shadowlink0, got %v", tun["interface_name"])
+	}
+	addrs := tun["address"].([]any)
+	if addrs[0] != "172.18.0.1/30" {
+		t.Fatalf("want non-default 172.18.0.1/30, got %v", addrs[0])
+	}
+	for _, a := range addrs {
+		if a == "172.19.0.1/30" {
+			t.Fatal("must not use sing-box default 172.19.0.1 (Hiddify collision)")
+		}
+	}
+}
+```
+
+- [ ] **Step 6: Run it, verify it passes**
+
+Run: `go test -tags "with_utls with_gvisor with_clash_api" ./internal/core/`
+Expected: PASS (existing core tests still green; new identity + helper tests pass).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add internal/core/tun.go internal/core/tun_test.go internal/core/render.go internal/core/render_test.go
+git commit -m "feat(core): distinct TUN identity (shadowlink0/172.18.0.1) + collision check"
+```
+
+> Wiring note: Task 1.10 calls `core.LocalTUNAddrInUse()` at the top of `connect`
+> and prints a warning (not a hard error) if it returns true, e.g. "another VPN
+> adapter already holds 172.18.0.1 — exit it first if connect fails".
+
+---
+
 ### Task 1.1: Secret masking
 
 **Files:**
