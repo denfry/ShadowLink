@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package ffiapi
+
+import (
+	"context"
+	"testing"
+
+	"github.com/shadowlink/shadowlink/internal/config"
+	"github.com/shadowlink/shadowlink/internal/core"
+	"github.com/shadowlink/shadowlink/internal/manager"
+	"github.com/shadowlink/shadowlink/internal/platform"
+)
+
+type fakeTunnel struct{ started, closed bool }
+
+func (f *fakeTunnel) Start() error { f.started = true; return nil }
+func (f *fakeTunnel) Close() error { f.closed = true; return nil }
+
+type fakeKS struct{ enabled bool }
+
+func (k *fakeKS) Enable(string) error { k.enabled = true; return nil }
+func (k *fakeKS) Disable() error       { k.enabled = false; return nil }
+
+type fakeProber struct{ ms int }
+
+func (p fakeProber) Delay(context.Context, string, string, int) (int, error) { return p.ms, nil }
+
+// apiWithFakeEngine wires Start/Stop to fakes (no real tunnel/privileges).
+func apiWithFakeEngine() *API {
+	a, prof := newTestAPI()
+	*prof = config.Profile{
+		Servers:  []config.Server{{Tag: "n1", UUID: "u", Host: "1.2.3.4", Port: 443, Flow: "xtls-rprx-vision", Network: "tcp", PublicKey: "K"}},
+		Selected: "n1",
+		Settings: config.DefaultSettings(),
+	}
+	a.render = func(core.BuildParams) ([]byte, error) { return []byte("{}"), nil }
+	a.newTunnel = func([]byte) (manager.Tunnel, error) { return &fakeTunnel{}, nil }
+	a.newKS = func() platform.KillSwitch { return &fakeKS{} }
+	a.newProber = func(int, string) Prober { return fakeProber{ms: 42} }
+	return a
+}
+
+func TestStartStatusStop(t *testing.T) {
+	a := apiWithFakeEngine()
+	if decode(t, a.Start(`{}`))["ok"] != true {
+		t.Fatal("start should succeed with fakes")
+	}
+	st := decode(t, a.Status())
+	if st["state"] != "connected" {
+		t.Fatalf("want connected, got %v", st["state"])
+	}
+	if st["delayMs"].(float64) != 42 {
+		t.Fatalf("want delay 42, got %v", st["delayMs"])
+	}
+	if decode(t, a.Stop())["ok"] != true {
+		t.Fatal("stop should succeed")
+	}
+	if decode(t, a.Status())["state"] != "disconnected" {
+		t.Fatal("status after stop should be disconnected")
+	}
+}
+
+func TestStartNoServersErrors(t *testing.T) {
+	a, _ := newTestAPI() // empty profile
+	if decode(t, a.Start(`{}`))["ok"] != false {
+		t.Fatal("start with no servers must fail")
+	}
+}
