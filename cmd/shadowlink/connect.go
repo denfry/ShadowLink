@@ -71,6 +71,7 @@ func connectCmd() *cobra.Command {
 
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+			defer signal.Stop(sig)
 			<-sig
 			fmt.Println("\ndisconnecting...")
 			return m.Disconnect()
@@ -93,6 +94,7 @@ func pickServer(prof config.Profile, args []string) (config.Server, error) {
 				return s, nil
 			}
 		}
+		fmt.Fprintf(os.Stderr, "warning: selected server %q not found; using %q\n", prof.Selected, prof.Servers[0].Tag)
 	}
 	return prof.Servers[0], nil
 }

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/shadowlink/shadowlink/internal/config"
@@ -17,7 +18,7 @@ func importCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			servers, err := subscription.Import(args[0])
-			if err == subscription.ErrRemote {
+			if errors.Is(err, subscription.ErrRemote) {
 				return fmt.Errorf("remote subscription fetch lands in Phase 2; for now save it to a file and import the file")
 			}
 			if err != nil {
