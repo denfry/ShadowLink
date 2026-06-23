@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Backoff computes exponential backoff with full jitter, capped at Max.
+// Backoff computes exponential backoff with equal jitter, capped at Max.
 type Backoff struct {
 	Base      time.Duration
 	Max       time.Duration
@@ -24,7 +24,8 @@ func (b *Backoff) Next(attempt int) time.Duration {
 	if exp > float64(b.Max) {
 		exp = float64(b.Max)
 	}
-	// full jitter in (0, exp]; keep a small floor so we never return 0.
+	// equal jitter in [exp/2, exp]: the exp/2 floor keeps us away from 0 for a
+	// positive Base, while still spreading retries to avoid thundering herds.
 	jittered := exp*rf()*0.5 + exp*0.5
 	d := time.Duration(jittered)
 	if d <= 0 {
