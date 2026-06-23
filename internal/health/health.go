@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// probeTimeoutMS bounds a single delay probe. It is intentionally larger than
+// any sane Interval so the sequential ticker never queues probes; Phase 1 keeps
+// it fixed (no per-profile knob yet).
+const probeTimeoutMS = 5000
+
 // Prober measures outbound latency (e.g. the Clash API client).
 type Prober interface {
 	Delay(ctx context.Context, tag, url string, timeoutMS int) (int, error)
@@ -31,7 +36,7 @@ func (c *Checker) Run(ctx context.Context, onDown, onUp func()) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			_, err := c.Prober.Delay(ctx, c.Tag, c.URL, 5000)
+			_, err := c.Prober.Delay(ctx, c.Tag, c.URL, probeTimeoutMS)
 			if err != nil {
 				consecutive++
 				if healthy && consecutive >= c.Failures {
