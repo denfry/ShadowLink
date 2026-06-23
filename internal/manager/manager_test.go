@@ -87,14 +87,30 @@ func TestDisconnectTearsDown(t *testing.T) {
 }
 
 func TestFailOpenSkipsKillSwitch(t *testing.T) {
-	tun := &fakeTunnel{}
-	ks := &fakeKS{}
-	m := New(deps(tun, ks))
-	set := config.DefaultSettings()
-	set.KillSwitch = false
-	set.FailOpen = true
-	_ = m.Connect(srv(), set)
-	if ks.enabled {
-		t.Fatal("kill switch enabled despite fail-open")
+	// useKS = KillSwitch && !FailOpen, so the kill switch must stay off whenever
+	// KillSwitch is off OR FailOpen is on — cover both independent branches.
+	cases := []struct {
+		name       string
+		killSwitch bool
+		failOpen   bool
+	}{
+		{"explicit fail-open", true, true},
+		{"kill switch disabled", false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tun := &fakeTunnel{}
+			ks := &fakeKS{}
+			m := New(deps(tun, ks))
+			set := config.DefaultSettings()
+			set.KillSwitch = tc.killSwitch
+			set.FailOpen = tc.failOpen
+			if err := m.Connect(srv(), set); err != nil {
+				t.Fatalf("connect: %v", err)
+			}
+			if ks.enabled {
+				t.Fatalf("kill switch enabled despite useKS=false (%s)", tc.name)
+			}
+		})
 	}
 }

@@ -44,7 +44,7 @@ func (m *Manager) State() State {
 	return m.state
 }
 
-func (m *Manager) set_(s State) { m.state = s }
+func (m *Manager) setState(s State) { m.state = s }
 
 // Connect brings up the kill switch (if enabled) then the tunnel.
 // Order matters: enable fail-closed BEFORE the tunnel so a startup crash can't leak.
@@ -54,13 +54,15 @@ func (m *Manager) Connect(srv config.Server, set config.Settings) error {
 	if !CanTransition(m.state, Connecting) {
 		return fmt.Errorf("cannot connect from state %s", m.state)
 	}
-	m.set_(Connecting)
+	m.setState(Connecting)
 	m.set = set
 
 	useKS := set.KillSwitch && !set.FailOpen
 	if useKS {
 		if err := m.deps.KillSwitch.Enable(srv.Host); err != nil {
-			m.set_(Error)
+			// Enable already self-rolls-back on failure, so there is nothing to
+			// disable here; route through fail() for one consistent error path.
+			m.fail(false)
 			return fmt.Errorf("enable kill switch: %w", err)
 		}
 	}
@@ -81,7 +83,7 @@ func (m *Manager) Connect(srv config.Server, set config.Settings) error {
 		return fmt.Errorf("start tunnel: %w", err)
 	}
 	m.tun = tun
-	m.set_(Connected)
+	m.setState(Connected)
 	return nil
 }
 
@@ -91,7 +93,7 @@ func (m *Manager) fail(useKS bool) {
 	if useKS {
 		_ = m.deps.KillSwitch.Disable()
 	}
-	m.set_(Error)
+	m.setState(Error)
 }
 
 // Disconnect tears down the tunnel and removes the kill switch.
@@ -101,7 +103,10 @@ func (m *Manager) Disconnect() error {
 	if m.state == Disconnected {
 		return nil
 	}
-	m.set_(Disconnecting)
+	if !CanTransition(m.state, Disconnecting) {
+		return fmt.Errorf("cannot disconnect from state %s", m.state)
+	}
+	m.setState(Disconnecting)
 	var firstErr error
 	if m.tun != nil {
 		if err := m.tun.Close(); err != nil {
@@ -112,6 +117,6 @@ func (m *Manager) Disconnect() error {
 	if err := m.deps.KillSwitch.Disable(); err != nil && firstErr == nil {
 		firstErr = err
 	}
-	m.set_(Disconnected)
+	m.setState(Disconnected)
 	return firstErr
 }
