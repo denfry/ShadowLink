@@ -18,6 +18,22 @@ func TestMaskKeepsTailHidesMiddle(t *testing.T) {
 	}
 }
 
+func TestMaskShortAndEmpty(t *testing.T) {
+	if got := Mask(""); got != "" {
+		t.Fatalf("empty must stay empty, got %q", got)
+	}
+	// A short secret must reveal NO prefix at all (no 2-char hint that could
+	// expose a tiny value); it collapses to "****".
+	for _, in := range []string{"a", "ab", "abc", "abcd"} {
+		if got := Mask(in); got != "****" {
+			t.Fatalf("short %q must mask fully to ****, got %q", in, got)
+		}
+	}
+	if got := Mask("abcde"); got != "ab****" {
+		t.Fatalf("5-char secret should hint 2 chars, got %q", got)
+	}
+}
+
 func TestMaskServerHidesUUIDAndKey(t *testing.T) {
 	s := config.Server{Tag: "n1", UUID: "abcdefab-0000-0000-0000-000000000000", Host: "ex.com", Port: 443, PublicKey: "SUPERSECRETKEY", ShortID: "ab"}
 	out := MaskServer(s)

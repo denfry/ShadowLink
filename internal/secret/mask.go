@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
+
+// Package secret masks sensitive values (UUIDs, REALITY keys, subscription
+// URLs) so they never appear in logs or error messages.
 package secret
 
 import (
@@ -7,15 +10,18 @@ import (
 	"github.com/shadowlink/shadowlink/internal/config"
 )
 
-// Mask hides all but a short prefix of a sensitive value.
+// Mask hides all but a short (2-char) prefix hint of a sensitive value.
+// It counts runes, so it never splits a multi-byte UTF-8 sequence even if a
+// future caller passes a non-ASCII secret.
 func Mask(s string) string {
+	r := []rune(s)
 	switch {
-	case s == "":
+	case len(r) == 0:
 		return ""
-	case len(s) <= 4:
+	case len(r) <= 4:
 		return "****"
 	default:
-		return s[:2] + "****"
+		return string(r[:2]) + "****"
 	}
 }
 
